@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+    <title>
+      Intro to MapView - Create a 2D map | Sample | ArcGIS Maps SDK for
+      JavaScript 4.26
+    </title>
+    <style>
+      html,
+      body,
+      #viewDiv {
+        padding: 0;
+        margin: 0;
+        height: 96%;
+      }
+      #header{
+        height:4%;
+        padding:10px;
+        background:#009999;
+        font-family:宋体;
+        font-size:20px;
+        color:white;
+      }
+      #basemapGalleryDiv{
+        height: 100%;
+      }
+      #optionsDiv {
+      background-color: white;
+      color: black;
+      padding: 6px;
+      max-width: 400px;
+      }
+    </style>
+
+    <link
+      rel="stylesheet"
+      href="https://js.arcgis.com/4.26/esri/themes/light/main.css"
+    />
+    <script src="https://js.arcgis.com/4.26/"></script>
+
+    <script>
+      require([
+        "esri/Map",
+        "esri/views/MapView",
+        "esri/layers/FeatureLayer",
+        "esri/layers/TileLayer",
+        "esri/widgets/Legend",
+        "esri/widgets/ScaleBar",
+        "esri/widgets/BasemapGallery",
+        "esri/widgets/Search",
+        "esri/widgets/LayerList",
+        "esri/widgets/Editor",
+        "esri/Graphic",
+        "esri/widgets/DistanceMeasurement2D",
+        "esri/widgets/Expand"
+        
+      ], (Map, MapView, FeatureLayer, TileLayer, Legend, ScaleBar,BasemapGallery,Search,LayerList,Editor, Graphic,DistanceMeasurement2D,Expand) => {
+        const layer = new FeatureLayer({
+          // URL to the service
+          url: "https://www.geosceneonline.cn/server/rest/services/Hosted/充电站/FeatureServer"
+        });
+        
+        const layer1 = new FeatureLayer({
+          // URL to the service
+          url: "https://www.geosceneonline.cn/server/rest/services/Hosted/福建省福州市仓山区金山/FeatureServer"
+        });
+
+        //let tilelayer = new TileLayer({ //切片图层
+          // URL points to a cached tiled map service hosted on ArcGIS Server
+         //url: "https://www.geosceneonline.cn/server/rest/services/Hosted/%E8%A1%8C%E6%94%BF%E5%8C%BA%E5%9C%B0%E5%9B%BE/MapServer"
+       // });
+
+        const map = new Map({
+          basemap: "topo-vector",
+          layers:[layer1,layer]
+          //layers: [featurelayer, tilelayer] //添加要素图层(法一)，切片图层(法一)
+        });
+        //map.basemap="streets";//修改底图类型
+        //map.layers.add(featurelayer);//添加要素图层(法二)
+        //map.layers.add(tilelayer);//添加要素图层(法二)
+        //map.addMany([featurelayer,tilelayer]);//添加图层（法三）
+        //map.layers.addMany([featurelayer,tilelayer]);//添加图层（法四）
+        //map.layers.push(featurelayer,tilelayer);//添加图层（法五）
+
+        const view = new MapView({
+          container: "viewDiv", //必需
+          map: map, //必需
+          zoom: 13,
+          center: [119.25, 26.04] // longitude, latitude
+        });
+        
+        let legend = new Legend({
+          //添加图例
+          view: view
+        });
+        view.ui.add(legend, "bottom-left");
+
+        let scaleBar = new ScaleBar({          //比例尺
+          view: view,
+          style: "ruler", //改变样式"style"|"line"
+          unit: "metric" //改变单位"non-metric"|"metric"|"dual"
+        });
+        // Add widget to the bottom left corner of the view
+        view.ui.add(scaleBar, {
+          position: "bottom-left"
+        });
+    
+        let basemapGallery = new BasemapGallery({       //底图库
+         view: view,
+         container: basemapGalleryDiv
+        });
+        // Add widget to the top right corner of the view
+        //view.ui.add(basemapGallery, {
+         //position: "top-right"
+        //});
+        
+        const searchWidget = new Search({          //搜索
+          view: view
+        });
+        // Adds the search widget below other elements in
+        // the top left corner of the view
+        view.ui.add(searchWidget, {
+          position: "top-left",
+          index: 2
+        });
+        
+        let layerList = new LayerList({          //图层列表
+          view: view
+        });
+        // Adds widget below other elements in the top left corner of the view
+        const layerListExpand = new Expand({
+          view: view,
+          content: layerList,
+          expanded:false
+        });
+        view.ui.add(layerListExpand, {position:"bottom-right"});
+        
+       let measurementWidget = new DistanceMeasurement2D({  //2D测量
+         view: view
+       });
+       //view.ui.add(measurementWidget, "top-left");
+      const measurementWidgetExpand = new Expand({
+          view: view,
+          content: measurementWidget,
+          expanded:false
+        });
+        view.ui.add(measurementWidgetExpand, {position:"bottom-right"}); 
+      
+    //搜索
+        view.ui.add("optionsDiv", "top-right");
+
+        // additional query fields initially set to null for basic query
+        let distance = null;
+        let units = null;
+
+        //create graphic for mouse point click
+        const pointGraphic = new Graphic({
+          symbol: {
+            type: "simple-marker", // autocasts as new SimpleMarkerSymbol()
+            color: [0, 0, 139],
+            outline: {
+              color: [255, 255, 255],
+              width: 1.5
+            }
+          }
+        });
+
+        // Create graphic for distance buffer
+        const bufferGraphic = new Graphic({
+          symbol: {
+            type: "simple-fill", // autocasts as new SimpleFillSymbol()
+            color: [173, 216, 230, 0.2],
+            outline: {
+              // autocasts as new SimpleLineSymbol()
+              color: [255, 255, 255],
+              width: 1
+            }
+          }
+        });
+
+        // when query type changes, set appropriate values
+        const queryOpts = document.getElementById("query-type");
+
+        queryOpts.addEventListener("change", () => {
+          switch (queryOpts.value) {
+            // values set for distance query
+            case "distance":
+              distance = 1;
+              units = "miles";
+              break;
+            default:
+              // Default set to basic query
+              distance = null;
+              units = null;
+          }
+        });
+        layer.load().then(() => {
+          // Set the view extent to the data extent
+          view.extent = layer.fullExtent;
+          layer.popupTemplate = layer.createPopupTemplate();
+        });
+
+        view.on("click", (event) => {
+          view.graphics.remove(pointGraphic);
+          if (view.graphics.includes(bufferGraphic)) {
+            view.graphics.remove(bufferGraphic);
+          }
+          queryFeatures(event);
+        });
+
+        function queryFeatures(screenPoint) {
+          const point = view.toMap(screenPoint);
+          layer
+            .queryFeatures({
+              geometry: point,
+              // distance and units will be null if basic query selected
+              distance: distance,
+              units: units,
+              spatialRelationship: "intersects",
+              returnGeometry: false,
+              returnQueryGeometry: true,
+              outFields: ["*"]
+            })
+            .then((featureSet) => {
+              // set graphic location to mouse pointer and add to mapview
+              pointGraphic.geometry = point;
+              view.graphics.add(pointGraphic);
+              // open popup of query result
+              view.popup.open({
+                location: point,
+                features: featureSet.features,
+                featureMenuOpen: true
+              });
+              if (featureSet.queryGeometry) {
+                bufferGraphic.geometry = featureSet.queryGeometry;
+                view.graphics.add(bufferGraphic);
+              }
+            });
+        }
+       
+       
+        // At the very minimum, set the Editor's view
+        const editor = new Editor({ //编辑
+          view: view
+        });
+        const editorExpand = new Expand({
+          view: view,
+          content: editor,
+          expanded:false
+        });
+        view.ui.add(editorExpand, {position:"bottom-right"});
+       
+      });
+    </script>
+  </head>
+
+  <body>
+    <div id="header">福建省福州市仓山区金山充电站</div>
+    <div id="viewDiv"></div>
+    <div id="basemapGalleryDiv"></div>
+    <div id="optionsDiv" class="esri-widget">
+      <p>
+        Select a query type and click a point on the map to view the results.
+      </p>
+      <select id="query-type" class="esri-widget">
+        <option value="basic">Basic Query</option>
+        <option value="distance">Query By Distance</option>
+      </select>
+    </div>
+  </body>
+</html>
+
